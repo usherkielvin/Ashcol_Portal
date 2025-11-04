@@ -1,0 +1,54 @@
+<?php
+
+namespace App\Http\Requests;
+
+use App\Models\Ticket;
+use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
+
+class UpdateTicketRequest extends FormRequest
+{
+    /**
+     * Determine if the user is authorized to make this request.
+     */
+    public function authorize(): bool
+    {
+        // Only admin/staff can update tickets
+        return $this->user()->isAdminOrStaff();
+    }
+
+    /**
+     * Get the validation rules that apply to the request.
+     *
+     * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
+     */
+    public function rules(): array
+    {
+        return [
+            'title' => ['sometimes', 'required', 'string', 'max:255'],
+            'description' => ['sometimes', 'required', 'string', 'max:5000'],
+            'status_id' => ['sometimes', 'required', 'exists:ticket_statuses,id'],
+            'assigned_staff_id' => ['nullable', 'exists:users,id'],
+            'priority' => ['sometimes', 'required', Rule::in([
+                Ticket::PRIORITY_LOW,
+                Ticket::PRIORITY_MEDIUM,
+                Ticket::PRIORITY_HIGH,
+                Ticket::PRIORITY_URGENT,
+            ])],
+        ];
+    }
+
+    /**
+     * Get custom messages for validator errors.
+     *
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'status_id.required' => 'Please select a ticket status.',
+            'status_id.exists' => 'The selected status is invalid.',
+        ];
+    }
+}
+

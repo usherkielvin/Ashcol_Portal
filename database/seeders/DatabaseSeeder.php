@@ -13,11 +13,36 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // User::factory(10)->create();
+        // Seed ticket statuses first
+        $this->call([
+            TicketStatusSeeder::class,
+        ]);
 
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
+        // Create admin user
+        User::factory()->admin()->create([
+            'name' => 'Admin User',
+            'email' => 'admin@example.com',
+        ]);
+
+        // Create staff user
+        User::factory()->staff()->create([
+            'name' => 'Staff User',
+            'email' => 'staff@example.com',
+        ]);
+
+        // Create customer user
+        User::factory()->customer()->create([
+            'name' => 'Customer User',
+            'email' => 'customer@example.com',
+        ]);
+
+        // Create additional test users
+        User::factory(5)->customer()->create();
+        User::factory(2)->staff()->create();
+
+        // Seed sample tickets
+        $this->call([
+            TicketSeeder::class,
         ]);
     }
 }

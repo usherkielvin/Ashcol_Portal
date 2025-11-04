@@ -1,0 +1,158 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Ticket;
+use App\Models\TicketStatus;
+use App\Models\User;
+use Illuminate\Http\Request;
+use Illuminate\View\View;
+
+class DashboardController extends Controller
+{
+    /**
+     * Display the dashboard based on user role.
+     */
+    public function index(Request $request): View
+    {
+        $user = $request->user();
+
+        if ($user->isAdmin()) {
+            return $this->adminDashboard($user);
+        } elseif ($user->isStaff()) {
+            return $this->staffDashboard($user);
+        } else {
+            return $this->customerDashboard($user);
+        }
+    }
+
+    /**
+     * Admin dashboard with overview statistics.
+     */
+    private function adminDashboard(User $user): View
+    {
+        // Total statistics
+        $totalTickets = Ticket::count();
+        $totalUsers = User::count();
+        $totalCustomers = User::where('role', User::ROLE_CUSTOMER)->count();
+        $totalStaff = User::whereIn('role', [User::ROLE_ADMIN, User::ROLE_STAFF])->count();
+
+        // Ticket statistics by status
+        $ticketsByStatus = TicketStatus::withCount('tickets')->get();
+        
+        // Priority breakdown
+        $priorityStats = [
+            'urgent' => Ticket::where('priority', Ticket::PRIORITY_URGENT)->count(),
+            'high' => Ticket::where('priority', Ticket::PRIORITY_HIGH)->count(),
+            'medium' => Ticket::where('priority', Ticket::PRIORITY_MEDIUM)->count(),
+            'low' => Ticket::where('priority', Ticket::PRIORITY_LOW)->count(),
+        ];
+
+        // Unassigned tickets
+        $unassignedTickets = Ticket::whereNull('assigned_staff_id')->count();
+
+        // Recent tickets
+        $recentTickets = Ticket::with(['customer', 'assignedStaff', 'status'])
+            ->latest()
+            ->take(10)
+            ->get();
+
+        // Recent users
+        $recentUsers = User::latest()->take(5)->get();
+
+        return view('dashboard.admin', [
+            'totalTickets' => $totalTickets,
+            'totalUsers' => $totalUsers,
+            'totalCustomers' => $totalCustomers,
+            'totalStaff' => $totalStaff,
+            'ticketsByStatus' => $ticketsByStatus,
+            'priorityStats' => $priorityStats,
+            'unassignedTickets' => $unassignedTickets,
+            'recentTickets' => $recentTickets,
+            'recentUsers' => $recentUsers,
+        ]);
+    }
+
+    /**
+     * Staff dashboard with assigned tickets.
+     */
+    private function staffDashboard(User $user): View
+    {
+        // Assigned tickets
+        $assignedTickets = Ticket::where('assigned_staff_id', $user->id)
+            ->with(['customer', 'status'])
+            ->latest()
+            ->get();
+
+        // Assigned tickets by status
+        $assignedByStatus = Ticket::where('assigned_staff_id', $user->id)
+            ->with('status')
+            ->get()
+            ->groupBy('status_id');
+
+        // Pending updates (tickets that need attention)
+        $pendingStatusIds = TicketStatus::whereIn('name', ['Open', 'In Progress', 'Pending'])->pluck('id');
+        $pendingUpdates = Ticket::where('assigned_staff_id', $user->id)
+            ->whereIn('status_id', $pendingStatusIds)
+            ->with(['customer', 'status'])
+            ->latest()
+            ->get();
+
+        // Unassigned tickets (staff can see these to assign themselves)
+        $unassignedTickets = Ticket::whereNull('assigned_staff_id')
+            ->with(['customer', 'status'])
+            ->latest()
+            ->take(10)
+            ->get();
+
+        // Statistics
+        $stats = [
+            'total_assigned' => $assignedTickets->count(),
+            'pending' => $pendingUpdates->count(),
+            'urgent' => $assignedTickets->where('priority', Ticket::PRIORITY_URGENT)->count(),
+        ];
+
+        return view('dashboard.staff', [
+            'assignedTickets' => $assignedTickets,
+            'assignedByStatus' => $assignedByStatus,
+            'pendingUpdates' => $pendingUpdates,
+            'unassignedTickets' => $unassignedTickets,
+            'stats' => $stats,
+        ]);
+    }
+
+    /**
+     * Customer dashboard with own tickets.
+     */
+    private function customerDashboard(User $user): View
+    {
+        // Customer's tickets
+        $tickets = Ticket::where('customer_id', $user->id)
+            ->with(['assignedStaff', 'status'])
+            ->latest()
+            ->get();
+
+        // Tickets by status
+        $ticketsByStatus = $tickets->groupBy('status_id');
+
+        // Statistics
+        $stats = [
+            'total' => $tickets->count(),
+            'open' => $tickets->where('status.name', 'Open')->count(),
+            'in_progress' => $tickets->where('status.name', 'In Progress')->count(),
+            'resolved' => $tickets->where('status.name', 'Resolved')->count(),
+            'closed' => $tickets->where('status.name', 'Closed')->count(),
+        ];
+
+        // Recent tickets
+        $recentTickets = $tickets->take(5);
+
+        return view('dashboard.customer', [
+            'tickets' => $tickets,
+            'ticketsByStatus' => $ticketsByStatus,
+            'stats' => $stats,
+            'recentTickets' => $recentTickets,
+        ]);
+    }
+}
+
