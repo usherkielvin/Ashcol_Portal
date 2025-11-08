@@ -7,6 +7,9 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('v1')->group(function () {
     // Public routes
     Route::post('/login', [AuthController::class, 'login']);
+    Route::post('/register', [AuthController::class, 'register']);
+    Route::post('/send-verification-code', [AuthController::class, 'sendVerificationCode']);
+    Route::post('/verify-email', [AuthController::class, 'verifyEmail']);
     
     // Protected routes
     Route::middleware('auth:sanctum')->group(function () {
