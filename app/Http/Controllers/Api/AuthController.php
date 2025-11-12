@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Validator;
 use App\Models\User;
 use App\Models\EmailVerification;
 use App\Mail\VerificationCode;
@@ -43,6 +44,9 @@ class AuthController extends Controller
             'data' => [
                 'user' => [
                     'id' => $user->id,
+                    'username' => $user->username,
+                    'firstName' => $user->firstName,
+                    'lastName' => $user->lastName,
                     'name' => $user->name,
                     'email' => $user->email,
                     'role' => $user->role,
@@ -57,72 +61,55 @@ class AuthController extends Controller
      */
     public function register(Request $request)
     {
+        $validator = Validator::make($request->all(), [
+            'username' => 'required|string|max:255|unique:users',
+            'firstName' => 'required|string|max:255',
+            'lastName' => 'required|string|max:255',
+            'email' => 'required|string|email|max:255|unique:users',
+            'password' => 'required|string|min:8',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation Error',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
         try {
-            $validated = $request->validate([
-                'name' => 'required|string|max:255',
-                'email' => 'required|string|email|max:255|unique:users',
-                'password' => 'required|string|min:8|confirmed',
-                'password_confirmation' => 'required|string|min:8',
-                'role' => 'nullable|string|in:admin,staff,customer',
-            ]);
-
-            // Generate verification code
-            $verificationCode = EmailVerification::generateCode();
-            
-            // Store verification code (expires in 10 minutes)
-            EmailVerification::updateOrCreate(
-                ['email' => $validated['email']],
-                [
-                    'code' => $verificationCode,
-                    'expires_at' => now()->addMinutes(10),
-                    'verified' => false,
-                ]
-            );
-
-            // Send verification email
-            try {
-                Mail::to($validated['email'])->send(new VerificationCode($verificationCode, $validated['name']));
-            } catch (\Exception $e) {
-                // Log error but continue (for development, email might not be configured)
-                \Log::error('Failed to send verification email: ' . $e->getMessage());
-            }
-
-            // Create user but don't log them in yet (wait for verification)
             $user = User::create([
-                'name' => $validated['name'],
-                'email' => $validated['email'],
-                'password' => Hash::make($validated['password']),
-                'role' => $validated['role'] ?? 'customer',
-                'email_verified_at' => null, // Not verified yet
+                'username' => $request->username,
+                'firstName' => $request->firstName,
+                'lastName' => $request->lastName,
+                'email' => $request->email,
+                'password' => Hash::make($request->password),
+                'role' => 'customer',
             ]);
+
+            $token = $user->createToken('auth_token')->plainTextToken;
 
             return response()->json([
                 'success' => true,
-                'message' => 'Registration successful. Please verify your email.',
+                'message' => 'Registration successful',
                 'data' => [
                     'user' => [
                         'id' => $user->id,
-                        'name' => $user->name,
+                        'username' => $user->username,
+                        'firstName' => $user->firstName,
+                        'lastName' => $user->lastName,
                         'email' => $user->email,
                         'role' => $user->role,
                     ],
+                    'token' => $token,
                     'requires_verification' => true,
-                ],
+                ]
             ], 201);
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation failed',
-                'errors' => [
-                    'name' => $e->errors()['name'] ?? null,
-                    'email' => $e->errors()['email'] ?? null,
-                    'password' => $e->errors()['password'] ?? null,
-                ],
-            ], 422);
+
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Registration failed: ' . $e->getMessage(),
+                'message' => 'Registration failed: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -219,6 +206,9 @@ class AuthController extends Controller
                 'data' => [
                     'user' => [
                         'id' => $user->id,
+                        'username' => $user->username,
+                        'firstName' => $user->firstName,
+                        'lastName' => $user->lastName,
                         'name' => $user->name,
                         'email' => $user->email,
                         'role' => $user->role,
