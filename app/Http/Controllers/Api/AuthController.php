@@ -18,42 +18,97 @@ class AuthController extends Controller
 {
     /**
      * Handle login request
+     * Supports both email and username login
      */
     public function login(Request $request)
     {
-        $request->validate([
-            'email' => 'required|string|email',
-            'password' => 'required|string',
-        ]);
+        try {
+            // Validate input - accept email/username field and password
+            $validator = Validator::make($request->all(), [
+                'email' => 'nullable|string',
+                'username' => 'nullable|string',
+                'password' => 'required|string',
+            ], [
+                'password.required' => 'Password is required',
+            ]);
 
-        $user = User::where('email', $request->email)->first();
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation Error',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
 
-        if (!$user || !Hash::check($request->password, $user->password)) {
+            // Get login identifier (email or username)
+            $loginValue = $request->input('username') ?? $request->input('email');
+            
+            if (empty($loginValue)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Email or username is required',
+                ], 422);
+            }
+
+            // Determine if login value is an email or username
+            $isEmail = filter_var($loginValue, FILTER_VALIDATE_EMAIL) !== false;
+
+            // Try to find user by email first if it's an email, otherwise try username
+            if ($isEmail) {
+                $user = User::where('email', $loginValue)->first();
+                // If not found by email, try username (in case user entered email but wants to login with username)
+                if (!$user) {
+                    $user = User::where('username', $loginValue)->first();
+                }
+            } else {
+                // It's a username, try username first
+                $user = User::where('username', $loginValue)->first();
+                // If not found by username, try email (in case user entered username but wants to login with email)
+                if (!$user) {
+                    $user = User::where('email', $loginValue)->first();
+                }
+            }
+
+            // Verify password
+            if (!$user || !Hash::check($request->password, $user->password)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid credentials',
+                ], 401);
+            }
+
+            // Create token using Sanctum
+            $token = $user->createToken('mobile-app')->plainTextToken;
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Login successful',
+                'data' => [
+                    'user' => [
+                        'id' => $user->id,
+                        'username' => $user->username,
+                        'firstName' => $user->firstName,
+                        'lastName' => $user->lastName,
+                        'name' => $user->name ?? trim(($user->firstName ?? '') . ' ' . ($user->lastName ?? '')),
+                        'email' => $user->email,
+                        'role' => $user->role,
+                    ],
+                    'token' => $token,
+                ],
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Invalid credentials',
-            ], 401);
+                'message' => 'Validation Error',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            \Log::error('Login error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Login failed: ' . $e->getMessage()
+            ], 500);
         }
-
-        // Create token using Sanctum
-        $token = $user->createToken('mobile-app')->plainTextToken;
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Login successful',
-            'data' => [
-                'user' => [
-                    'id' => $user->id,
-                    'username' => $user->username,
-                    'firstName' => $user->firstName,
-                    'lastName' => $user->lastName,
-                    'name' => $user->name,
-                    'email' => $user->email,
-                    'role' => $user->role,
-                ],
-                'token' => $token,
-            ],
-        ]);
     }
 
     /**
