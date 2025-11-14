@@ -6,14 +6,63 @@ use OpenAI\Client;
 
 class AiService
 {
-    protected Client $client;
-    protected string $model;
+    protected ?Client $client = null;
+    protected ?string $model = null;
     protected array $conversationHistory = [];
 
     public function __construct()
     {
-        $this->client = \OpenAI::client(config('services.openai.api_key'));
-        $this->model = config('services.openai.model', 'gpt-3.5-turbo');
+        $this->client = null;
+        $this->model = null;
+        
+        // Initialize OpenAI client if API key is configured
+        $apiKey = config('services.openai.api_key');
+        if ($apiKey && !empty(trim($apiKey))) {
+            try {
+                // Try the most common initialization methods for openai-php/client
+                // Method 1: Using Client factory pattern (most common for openai-php/client)
+                if (class_exists('\OpenAI\Client')) {
+                    try {
+                        $this->client = \OpenAI\Client::factory()
+                            ->withApiKey($apiKey)
+                            ->make();
+                    } catch (\Exception $e) {
+                        // Try alternative factory method
+                        if (method_exists('\OpenAI\Client', 'factory')) {
+                            $factory = \OpenAI\Client::factory();
+                            if (method_exists($factory, 'withApiKey')) {
+                                $this->client = $factory->withApiKey($apiKey)->make();
+                            }
+                        }
+                    }
+                }
+                // Method 2: Try using OpenAI helper function (if available in global namespace)
+                if (!$this->client && function_exists('OpenAI\client')) {
+                    $this->client = \OpenAI\client($apiKey);
+                }
+                // Method 3: Try using the OpenAI class directly
+                if (!$this->client && class_exists('\OpenAI')) {
+                    $this->client = \OpenAI::client($apiKey);
+                }
+                // Method 4: For Laravel-specific package
+                if (!$this->client && class_exists('OpenAI\Laravel\Facades\OpenAI')) {
+                    $this->client = \OpenAI\Laravel\Facades\OpenAI::client($apiKey);
+                }
+                
+                if ($this->client) {
+                    $this->model = config('services.openai.model', 'gpt-3.5-turbo');
+                    \Log::info('OpenAI client initialized successfully with model: ' . $this->model);
+                } else {
+                    \Log::warning('OpenAI client could not be initialized - package may not be properly installed');
+                }
+            } catch (\Throwable $e) {
+                \Log::warning('OpenAI client initialization failed: ' . $e->getMessage() . ' | Stack: ' . $e->getTraceAsString());
+                $this->client = null;
+                // Chatbot will use keyword-based responses as fallback
+            }
+        } else {
+            \Log::info('OpenAI API key not configured. Chatbot will use keyword-based responses.');
+        }
     }
 
     /**
@@ -26,6 +75,11 @@ class AiService
      */
     public function getResponse(string $userMessage, ?string $systemPrompt = null, ?array $conversationHistory = null): string
     {
+        // Check if OpenAI client is available
+        if (!$this->client) {
+            return "I'm here to help! For detailed assistance, please contact our support team at support@ashcol.com or try asking about tickets, services, or account help.";
+        }
+
         try {
             // Build messages array
             $messages = [];

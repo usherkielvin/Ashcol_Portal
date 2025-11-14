@@ -46,15 +46,26 @@ class ChatbotController extends Controller
             ]);
         }
 
-        // Fall back to AI for complex queries
-        $context = $this->buildContext($userId, $originalMessage);
-        $aiResponse = $this->aiService->getSupportResponse($originalMessage, $context);
+        // Fall back to AI for complex queries, or provide helpful fallback
+        try {
+            $context = $this->buildContext($userId, $originalMessage);
+            $aiResponse = $this->aiService->getSupportResponse($originalMessage, $context);
 
-        return response()->json([
-            'reply' => $aiResponse,
-            'timestamp' => now(),
-            'method' => 'ai',
-        ]);
+            return response()->json([
+                'reply' => $aiResponse,
+                'timestamp' => now(),
+                'method' => 'ai',
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Chatbot error: ' . $e->getMessage());
+            
+            // Provide helpful fallback response
+            return response()->json([
+                'reply' => "I understand you're asking about: \"" . $originalMessage . "\". For detailed assistance, please contact our support team at support@ashcol.com or visit our help center. You can also ask me about tickets, services, or account help!",
+                'timestamp' => now(),
+                'method' => 'fallback',
+            ]);
+        }
     }
 
     /**
@@ -194,9 +205,15 @@ class ChatbotController extends Controller
             }
         }
 
-        // Check if message contains urgent keywords
-        if ($this->aiService->isUrgent($message)) {
-            $context .= "The message appears to be urgent. Prioritize accordingly. ";
+        // Check if message contains urgent keywords (only if AI service is available)
+        try {
+            if (method_exists($this->aiService, 'isUrgent')) {
+                if ($this->aiService->isUrgent($message)) {
+                    $context .= "The message appears to be urgent. Prioritize accordingly. ";
+                }
+            }
+        } catch (\Exception $e) {
+            // Ignore errors in urgency detection
         }
 
         return $context;
