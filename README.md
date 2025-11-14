@@ -1,14 +1,40 @@
-<p align="center"><strong>Ashcol Portal</strong><br/>Customer ticketing, role-based dashboards, and public landing site for Ashcol Airconditioning Corporation.</p>
+<p align="center"><strong>Ashcol Portal</strong><br/>All-in-One Service Hub - Complete business management system for Ashcol Airconditioning Corporation.</p>
 
 ---
 
 ## 1) Overview
 
-- Monolith built with Laravel 11 + Blade + Tailwind CSS
-- Public landing page (marketing + contact form)
-- Auth (Breeze) with roles: Admin, Staff, Customer
-- Ticketing: tickets, comments, statuses, priorities
-- Dashboards: role-based widgets and lists
+**Ashcol Portal** is the comprehensive backend and web platform that powers the all-in-one Service Hub ecosystem, serving **customers**, **employees (staff)**, and **administrators** with a complete suite of service management tools.
+
+### System Components
+- **Web Portal:** Monolith built with Laravel 11 + Blade + Tailwind CSS
+- **Mobile App:** ServiceHub Android app (connects via REST API)
+- **Public Landing:** Marketing site + contact form
+- **Authentication:** Breeze with role-based access (Admin, Staff, Customer)
+- **Ticketing System:** Full CRUD with comments, statuses, priorities
+- **Role-Based Dashboards:** Customized views for each user type
+- **API Layer:** RESTful API for mobile app integration
+
+### User Roles & Access
+
+#### 👤 **Customers**
+- Create and manage service tickets
+- View ticket status and history
+- Access customer dashboard
+- Manage profile
+
+#### 👷 **Employees (Staff)**
+- View and manage assigned tickets
+- Update ticket status and priorities
+- Access workload management
+- Employee dashboard with assignments
+
+#### 👨‍💼 **Administrators**
+- Full system administration
+- User and employee management
+- Branch management
+- Analytics and reporting
+- Ticket assignment and oversight
 
 Live dev URLs (local/XAMPP):
 - Landing: `http://localhost/ashcol_portal/public/`
@@ -95,17 +121,79 @@ The next domain features are planned as separate modules:
 
 ## 6) Roadmap / TODO
 
+### ✅ Completed
 - [x] Breeze auth + roles (admin/staff/customer)
 - [x] Ticketing: CRUD, comments, statuses, priorities
 - [x] Role dashboards (admin/staff/customer)
 - [x] Public landing page (ported design)
+- [x] API endpoints for authentication (login, logout, user profile)
+- [x] Sanctum token-based authentication
+
+### 🚀 Phase 1: Core Features (In Progress)
 - [ ] Request Service → create Ticket (map landing form to `tickets.store`)
 - [ ] Contact form → email + DB (leads table)
+- [ ] API endpoints for ticket management
+  - [ ] `GET /api/v1/tickets` - List tickets
+  - [ ] `POST /api/v1/tickets` - Create ticket
+  - [ ] `GET /api/v1/tickets/{id}` - Get ticket details
+  - [ ] `PUT /api/v1/tickets/{id}` - Update ticket
+  - [ ] `POST /api/v1/tickets/{id}/comments` - Add comment
+  - [ ] `GET /api/v1/tickets/{id}/comments` - Get comments
+- [ ] Profile API endpoints
+  - [ ] `PUT /api/v1/profile` - Update profile
+  - [ ] `PUT /api/v1/profile/password` - Change password
+
+### 🎯 Phase 2: Workload Management
 - [ ] Workloads module (assignments, schedule view)
+  - [ ] Assign/unassign tickets to staff
+  - [ ] Staff availability calendar (basic)
+  - [ ] Workload board: Today / Upcoming / Overdue
+  - [ ] API endpoints for workload management
+
+### 👥 Phase 3: Employee Management
 - [ ] Employees module (roster, skills, link to users)
+  - [ ] Staff roster with filters (skills/branch)
+  - [ ] Link `employees.user_id` to `users.id`
+  - [ ] Employee CRUD operations
+  - [ ] Skills management
+
+### 🏢 Phase 4: Branch Management
 - [ ] Branches module (scope tickets/workloads)
+  - [ ] Branch management CRUD
+  - [ ] Scope tickets and workloads by branch
+  - [ ] Landing "Request Service" default branch selection
+  - [ ] Branch-based filtering and reporting
+
+### 📎 Phase 5: File Management
 - [ ] Attachments (ticket and comment uploads)
+  - [ ] File upload functionality
+  - [ ] File storage and retrieval
+  - [ ] File type validation
+  - [ ] Image preview
+
+### 🔔 Phase 6: Notifications
 - [ ] Notifications (email on create/assign/status change)
+  - [ ] Email notifications for ticket events
+  - [ ] In-app notification system
+  - [ ] Push notifications (for mobile app integration)
+  - [ ] Notification preferences
+
+### 🔍 Phase 7: Search & Reporting
+- [ ] Advanced search functionality
+- [ ] Reporting and analytics dashboard
+- [ ] Export capabilities (CSV, PDF)
+- [ ] Audit logs
+
+### 📱 Phase 8: Mobile API Enhancements (ServiceHub App)
+- [ ] Enhanced mobile API endpoints for all user roles
+- [ ] Role-based API responses (customer/employee/admin)
+- [ ] Offline sync support
+- [ ] Real-time updates (WebSockets)
+- [ ] Mobile-optimized responses
+- [ ] Push notification endpoints
+- [ ] Workload management APIs
+- [ ] Employee management APIs (admin only)
+- [ ] Branch management APIs (admin only)
 
 ---
 
